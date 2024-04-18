@@ -151,6 +151,7 @@ func (s *SystemUnderTest) SetupChain() {
 }
 
 func (s *SystemUnderTest) StartChain(t *testing.T, xargs ...string) {
+	t.Helper()
 	s.Log("Start chain\n")
 	s.ChainStarted = true
 	s.startNodesAsync(t, append([]string{"start", "--trace", "--log_level=info"}, xargs...)...)
@@ -236,6 +237,7 @@ func isLogNoise(text string) bool {
 
 // AwaitUpgradeInfo blocks util an upgrade info file is persisted to disk
 func (s *SystemUnderTest) AwaitUpgradeInfo(t *testing.T) {
+	t.Helper()
 	var found bool
 	for !found {
 		s.withEachNodeHome(func(i int, home string) {
@@ -408,6 +410,7 @@ func (s *SystemUnderTest) AwaitNextBlock(t *testing.T, timeout ...time.Duration)
 
 // ResetDirtyChain reset chain when non default setup or state (dirty)
 func (s *SystemUnderTest) ResetDirtyChain(t *testing.T) {
+	t.Helper()
 	if s.IsDirty() {
 		s.ResetChain(t)
 	}
@@ -437,6 +440,7 @@ func (s *SystemUnderTest) ResetChain(t *testing.T) {
 
 // ModifyGenesisCLI executes the CLI commands to modify the genesis
 func (s *SystemUnderTest) ModifyGenesisCLI(t *testing.T, cmds ...[]string) {
+	t.Helper()
 	s.ForEachNodeExecAndWait(t, cmds...)
 	s.MarkDirty()
 }
@@ -453,12 +457,14 @@ type GenesisMutator func([]byte) []byte
 //		return state
 //	}
 func (s *SystemUnderTest) ModifyGenesisJSON(t *testing.T, mutators ...GenesisMutator) {
+	t.Helper()
 	s.ResetChain(t)
 	s.modifyGenesisJSON(t, mutators...)
 }
 
 // modify json without enforcing a reset
 func (s *SystemUnderTest) modifyGenesisJSON(t *testing.T, mutators ...GenesisMutator) {
+	t.Helper()
 	require.Empty(t, s.currentHeight, "forced chain reset required")
 	current, err := os.ReadFile(filepath.Join(WorkDir, s.nodePath(0), "config", "genesis.json"))
 	require.NoError(t, err)
@@ -473,6 +479,7 @@ func (s *SystemUnderTest) modifyGenesisJSON(t *testing.T, mutators ...GenesisMut
 
 // ReadGenesisJSON returns current genesis.json content as raw string
 func (s *SystemUnderTest) ReadGenesisJSON(t *testing.T) string {
+	t.Helper()
 	content, err := os.ReadFile(filepath.Join(WorkDir, s.nodePath(0), "config", "genesis.json"))
 	require.NoError(t, err)
 	return string(content)
@@ -480,6 +487,7 @@ func (s *SystemUnderTest) ReadGenesisJSON(t *testing.T) string {
 
 // setGenesis copy genesis file to all nodes
 func (s *SystemUnderTest) setGenesis(t *testing.T, srcPath string) {
+	t.Helper()
 	in, err := os.Open(srcPath)
 	require.NoError(t, err)
 	defer in.Close()
@@ -513,6 +521,7 @@ func saveGenesis(home string, content []byte) error {
 // ForEachNodeExecAndWait runs the given app executable commands for all cluster nodes synchronously
 // The commands output is returned for each node.
 func (s *SystemUnderTest) ForEachNodeExecAndWait(t *testing.T, cmds ...[]string) [][]string {
+	t.Helper()
 	result := make([][]string, s.nodesCount)
 	s.withEachNodeHome(func(i int, home string) {
 		result[i] = make([]string, len(cmds))
@@ -520,7 +529,7 @@ func (s *SystemUnderTest) ForEachNodeExecAndWait(t *testing.T, cmds ...[]string)
 			xargs = append(xargs, "--home", home)
 			s.Logf("Execute `%s %s`\n", s.execBinary, strings.Join(xargs, " "))
 			out := runShellCmd(t, s.execBinary, xargs...)
-			s.Logf("Result: %s\n", string(out))
+			s.Logf("Result: %s\n", out)
 			result[i][j] = out
 		}
 	})
@@ -528,13 +537,14 @@ func (s *SystemUnderTest) ForEachNodeExecAndWait(t *testing.T, cmds ...[]string)
 }
 
 func runShellCmd(t *testing.T, cmd string, args ...string) string {
+	t.Helper()
 	out, err := runShellCmdX(cmd, args...)
 	require.NoError(t, err)
 	return out
 }
 
 func runShellCmdX(cmd string, args ...string) (string, error) {
-	c := exec.Command( //nolint:gosec
+	c := exec.Command( //nolint:gosec // used by tests only
 		locateExecutable(cmd),
 		args...,
 	)
@@ -548,10 +558,11 @@ func runShellCmdX(cmd string, args ...string) (string, error) {
 
 // startNodesAsync runs the given app cli command for all cluster nodes and returns without waiting
 func (s *SystemUnderTest) startNodesAsync(t *testing.T, xargs ...string) {
+	t.Helper()
 	s.withEachNodeHome(func(i int, home string) {
 		args := append(xargs, "--home", home)
 		s.Logf("Execute `%s %s`\n", s.execBinary, strings.Join(args, " "))
-		cmd := exec.Command( //nolint:gosec
+		cmd := exec.Command( //nolint:gosec // used by tests only
 			locateExecutable(s.execBinary),
 			args...,
 		)
@@ -602,10 +613,12 @@ func (s *SystemUnderTest) Logf(msg string, args ...interface{}) {
 }
 
 func (s *SystemUnderTest) RPCClient(t *testing.T) RPCClient {
+	t.Helper()
 	return NewRPCClient(t, s.rpcAddr)
 }
 
 func (s *SystemUnderTest) AllPeers(t *testing.T) []string {
+	t.Helper()
 	result := make([]string, s.nodesCount)
 	for i, n := range s.AllNodes(t) {
 		result[i] = n.PeerAddr()
@@ -614,10 +627,12 @@ func (s *SystemUnderTest) AllPeers(t *testing.T) []string {
 }
 
 func (s *SystemUnderTest) AllNodes(t *testing.T) []Node {
+	t.Helper()
 	return AllNodes(t, s)
 }
 
 func AllNodes(t *testing.T, s *SystemUnderTest) []Node {
+	t.Helper()
 	result := make([]Node, s.nodesCount)
 	outs := s.ForEachNodeExecAndWait(t, []string{"comet", "show-node-id"})
 	ip, err := server.ExternalIP()
@@ -641,6 +656,7 @@ func (s *SystemUnderTest) resetBuffers() {
 
 // AddFullnode starts a new fullnode that connects to the existing chain but is not a validator.
 func (s *SystemUnderTest) AddFullnode(t *testing.T, beforeStart ...func(nodeNumber int, nodePath string)) Node {
+	t.Helper()
 	s.MarkDirty()
 	s.nodesCount++
 	nodeNumber := s.nodesCount - 1
@@ -651,7 +667,7 @@ func (s *SystemUnderTest) AddFullnode(t *testing.T, beforeStart ...func(nodeNumb
 	moniker := fmt.Sprintf("node%d", nodeNumber)
 	args := []string{"init", moniker, "--home", nodePath, "--overwrite"}
 	s.Logf("Execute `%s %s`\n", s.execBinary, strings.Join(args, " "))
-	cmd := exec.Command( //nolint:gosec
+	cmd := exec.Command( //nolint:gosec // used by tests only
 		locateExecutable(s.execBinary),
 		args...,
 	)
@@ -688,7 +704,7 @@ func (s *SystemUnderTest) AddFullnode(t *testing.T, beforeStart ...func(nodeNumb
 		"--home", nodePath,
 	}
 	s.Logf("Execute `%s %s`\n", s.execBinary, strings.Join(args, " "))
-	cmd = exec.Command( //nolint:gosec
+	cmd = exec.Command( //nolint:gosec // used by tests only
 		locateExecutable(s.execBinary),
 		args...,
 	)
@@ -700,6 +716,7 @@ func (s *SystemUnderTest) AddFullnode(t *testing.T, beforeStart ...func(nodeNumb
 
 // NewEventListener constructor for Eventlistener with system rpc address
 func (s *SystemUnderTest) NewEventListener(t *testing.T) *EventListener {
+	t.Helper()
 	return NewEventListener(t, s.rpcAddr)
 }
 
@@ -748,6 +765,7 @@ type EventListener struct {
 
 // NewEventListener event listener
 func NewEventListener(t *testing.T, rpcAddr string) *EventListener {
+	t.Helper()
 	httpClient, err := client.New(rpcAddr, "/websocket")
 	require.NoError(t, err)
 	require.NoError(t, httpClient.Start())
@@ -769,8 +787,8 @@ func (l *EventListener) Subscribe(query string, cb EventConsumer) func() {
 	eventsChan, err := l.client.WSEvents.Subscribe(ctx, "testing", query)
 	require.NoError(l.t, err)
 	cleanup := func() {
-		ctx, _ := context.WithTimeout(ctx, DefaultWaitTime)     //nolint:govet
-		go l.client.WSEvents.Unsubscribe(ctx, "testing", query) //nolint:errcheck
+		ctx, _ := context.WithTimeout(ctx, DefaultWaitTime)     //nolint:govet // used in cleanup only
+		go l.client.WSEvents.Unsubscribe(ctx, "testing", query) //nolint:errcheck // used by tests only
 		done()
 	}
 	go func() {
@@ -799,6 +817,7 @@ func (l *EventListener) AwaitQuery(query string, optMaxWaitTime ...time.Duration
 // TimeoutConsumer is an event consumer decorator with a max wait time. Panics when wait time exceeded without
 // a result returned
 func TimeoutConsumer(t *testing.T, maxWaitTime time.Duration, next EventConsumer) EventConsumer {
+	t.Helper()
 	ctx, done := context.WithCancel(context.Background())
 	t.Cleanup(done)
 	timeout := time.NewTimer(maxWaitTime)
@@ -849,6 +868,7 @@ func CaptureSingleEventConsumer() (EventConsumer, *ctypes.ResultEvent) {
 //
 //		assert.Len(t, done(), 1) // then verify your assumption
 func CaptureAllEventsConsumer(t *testing.T, optMaxWaitTime ...time.Duration) (c EventConsumer, done func() []ctypes.ResultEvent) {
+	t.Helper()
 	maxWaitTime := DefaultWaitTime
 	if len(optMaxWaitTime) != 0 {
 		maxWaitTime = optMaxWaitTime[0]
@@ -878,12 +898,14 @@ func CaptureAllEventsConsumer(t *testing.T, optMaxWaitTime ...time.Duration) (c 
 
 // restoreOriginalGenesis replace nodes genesis by the one created on setup
 func restoreOriginalGenesis(t *testing.T, s *SystemUnderTest) {
+	t.Helper()
 	src := filepath.Join(WorkDir, s.nodePath(0), "config", "genesis.json.orig")
 	s.setGenesis(t, src)
 }
 
 // restoreOriginalKeyring replaces test keyring with original
 func restoreOriginalKeyring(t *testing.T, s *SystemUnderTest) {
+	t.Helper()
 	dest := filepath.Join(WorkDir, s.outputDir, "keyring-test")
 	require.NoError(t, os.RemoveAll(dest))
 	for i := 0; i < s.initialNodesCount; i++ {
@@ -931,6 +953,7 @@ func copyFilesInDir(src, dest string) error {
 }
 
 func storeTempFile(t *testing.T, content []byte) *os.File {
+	t.Helper()
 	out, err := os.CreateTemp(t.TempDir(), "genesis")
 	require.NoError(t, err)
 	_, err = io.Copy(out, bytes.NewReader(content))

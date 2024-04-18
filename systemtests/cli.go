@@ -47,6 +47,7 @@ type CLIWrapper struct {
 
 // NewCLIWrapper constructor
 func NewCLIWrapper(t *testing.T, sut *SystemUnderTest, verbose bool) *CLIWrapper {
+	t.Helper()
 	return NewCLIWrapperX(
 		t,
 		sut.execBinary,
@@ -76,6 +77,7 @@ func NewCLIWrapperX(
 	assertErrorFn RunErrorAssert,
 	expTXCommitted bool,
 ) *CLIWrapper {
+	t.Helper()
 	if strings.TrimSpace(execBinary) == "" {
 		t.Fatal("name of executable binary must not be empty")
 	}
@@ -217,7 +219,7 @@ func (c CLIWrapper) runWithInput(args []string, input io.Reader) (output string,
 				err = fmt.Errorf("recovered from panic: %v", r)
 			}
 		}()
-		cmd := exec.Command(locateExecutable(c.execBinary), args...) //nolint:gosec
+		cmd := exec.Command(locateExecutable(c.execBinary), args...) //nolint:gosec // test code only
 		cmd.Dir = WorkDir
 		cmd.Stdin = input
 		return cmd.CombinedOutput()
@@ -411,6 +413,7 @@ func RequireTxFailure(t *testing.T, got string, containsMsgs ...string) {
 }
 
 func parseResultCode(t *testing.T, got string) (int64, string) {
+	t.Helper()
 	code := gjson.Get(got, "code")
 	require.True(t, code.Exists(), "got response: %s", got)
 

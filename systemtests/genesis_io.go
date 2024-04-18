@@ -16,9 +16,18 @@ import (
 
 // SetConsensusMaxGas max gas that can be consumed in a block
 func SetConsensusMaxGas(t *testing.T, max int) GenesisMutator {
+	t.Helper()
 	return func(genesis []byte) []byte {
-		t.Helper()
 		state, err := sjson.SetRawBytes(genesis, "consensus.params.block.max_gas", []byte(fmt.Sprintf(`"%d"`, max)))
+		require.NoError(t, err)
+		return state
+	}
+}
+
+func SetGovVotingPeriod(t *testing.T, period time.Duration) GenesisMutator {
+	t.Helper()
+	return func(genesis []byte) []byte {
+		state, err := sjson.SetRawBytes(genesis, "app_state.gov.params.voting_period", []byte(fmt.Sprintf("%q", period.String())))
 		require.NoError(t, err)
 		return state
 	}
@@ -34,13 +43,4 @@ func GetGenesisBalance(rawGenesis []byte, addr string) sdk.Coins {
 		}
 	}
 	return r
-}
-
-func SetGovVotingPeriod(t *testing.T, period time.Duration) GenesisMutator {
-	return func(genesis []byte) []byte {
-		t.Helper()
-		state, err := sjson.SetRawBytes(genesis, "app_state.gov.params.voting_period", []byte(fmt.Sprintf("%q", period.String())))
-		require.NoError(t, err)
-		return state
-	}
 }

@@ -3,7 +3,6 @@ package systemtests
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/creachadair/tomledit/parser"
 )
 
+// SingleHostTestnetCmdInitializer default testnet cmd that supports the --single-host param
 type SingleHostTestnetCmdInitializer struct {
 	execBinary        string
 	workDir           string
@@ -25,8 +25,24 @@ type SingleHostTestnetCmdInitializer struct {
 	log               func(string)
 }
 
-func NewSingleHostTestnetCmdInitializer(execBinary, workDir, chainID, outputDir string, initialNodesCount int, minGasPrice string, commitTimeout time.Duration, log func(string)) *SingleHostTestnetCmdInitializer {
-	return &SingleHostTestnetCmdInitializer{execBinary: execBinary, workDir: workDir, chainID: chainID, outputDir: outputDir, initialNodesCount: initialNodesCount, minGasPrice: minGasPrice, commitTimeout: commitTimeout, log: log}
+// NewSingleHostTestnetCmdInitializer constructor
+func NewSingleHostTestnetCmdInitializer(
+	execBinary, workDir, chainID, outputDir string,
+	initialNodesCount int,
+	minGasPrice string,
+	commitTimeout time.Duration,
+	log func(string),
+) *SingleHostTestnetCmdInitializer {
+	return &SingleHostTestnetCmdInitializer{
+		execBinary:        execBinary,
+		workDir:           workDir,
+		chainID:           chainID,
+		outputDir:         outputDir,
+		initialNodesCount: initialNodesCount,
+		minGasPrice:       minGasPrice,
+		commitTimeout:     commitTimeout,
+		log:               log,
+	}
 }
 
 func (s SingleHostTestnetCmdInitializer) Initialize() {
@@ -41,17 +57,16 @@ func (s SingleHostTestnetCmdInitializer) Initialize() {
 		"--commit-timeout=" + s.commitTimeout.String(),
 		"--single-host",
 	}
-	fmt.Printf("+++ %s %s\n", s.execBinary, strings.Join(args, " "))
-	cmd := exec.Command( //nolint:gosec
-		locateExecutable(s.execBinary),
-		args...,
-	)
-	cmd.Dir = s.workDir
-	out := mustV(cmd.CombinedOutput())
-	s.log(string(out))
+	s.log(fmt.Sprintf("+++ %s %s\n", s.execBinary, strings.Join(args, " ")))
+	out, err := runShellCmdX(s.execBinary, args...)
+	if err != nil {
+		panic(err)
+	}
+	s.log(out)
 }
 
-type LegacyTestnetInitializer struct {
+// ModifyConfigYamlInitializer testnet cmd prior to --single-host param. Modifies the toml files.
+type ModifyConfigYamlInitializer struct {
 	execBinary        string
 	workDir           string
 	chainID           string
@@ -63,8 +78,8 @@ type LegacyTestnetInitializer struct {
 	projectName       string
 }
 
-func NewModifyConfigYamlInitializer(exec string, s *SystemUnderTest) *LegacyTestnetInitializer {
-	return &LegacyTestnetInitializer{
+func NewModifyConfigYamlInitializer(exec string, s *SystemUnderTest) *ModifyConfigYamlInitializer {
+	return &ModifyConfigYamlInitializer{
 		execBinary:        exec,
 		workDir:           WorkDir,
 		chainID:           s.chainID,
@@ -84,7 +99,7 @@ const (
 	p2pPortStart  = 16656
 )
 
-func (s LegacyTestnetInitializer) Initialize() {
+func (s ModifyConfigYamlInitializer) Initialize() {
 	// init with legacy testnet command
 	args := []string{
 		"testnet",
@@ -95,13 +110,13 @@ func (s LegacyTestnetInitializer) Initialize() {
 		"--keyring-backend=test",
 		"--minimum-gas-prices=" + s.minGasPrice,
 	}
-	fmt.Printf("+++ %s %s\n", s.execBinary, strings.Join(args, " "))
+	s.log(fmt.Sprintf("+++ %s %s\n", s.execBinary, strings.Join(args, " ")))
 
 	out, err := runShellCmdX(s.execBinary, args...)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(out)
+	s.log(out)
 
 	nodeAddresses := make([]string, s.initialNodesCount)
 	for i := 0; i < s.initialNodesCount; i++ {
@@ -174,11 +189,13 @@ func UpdatePort(doc *tomledit.Document, newPort int, xpath ...string) {
 	e.Value = parser.MustValue(data + "\"")
 }
 
+// mustV same as must but with value returned
 func mustV[T any](r T, err error) T {
 	must(err)
 	return r
 }
 
+// must simple panic on error for fluent calls
 func must(err error) {
 	if err != nil {
 		panic(err)
